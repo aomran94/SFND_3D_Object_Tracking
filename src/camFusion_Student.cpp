@@ -133,7 +133,10 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
 // associate a given bounding box with the keypoints it contains
 void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
 {
-    // ...
+    for (cv::DMatch match : kptMatches) 
+        if (boundingBox.roi.contains(kptsCurr[match.trainIdx].pt)) 
+            boundingBox.kptMatches.push_back(match);
+    
 }
 
 
@@ -141,7 +144,32 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, 
                       std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
 {
-    // ...
+    vector<double> distanceRatios;
+    double distanceMinThreshold = 80.0;
+    TTC = 0.0;
+
+    for(auto matchI = kptMatches.begin(); matchI < kptMatches.end()-1; matchI++){
+        pair<cv::KeyPoint, cv::KeyPoint> matchedI = make_pair(kptsCurr.at(matchI->trainIdx), kptsPrev.at(matchI->queryIdx));
+
+        for(auto matchJ = matchI+1; matchJ < kptMatches.end(); matchJ++){
+            pair<cv::KeyPoint, cv::KeyPoint> matchedJ = make_pair(kptsCurr.at(matchJ->trainIdx), kptsPrev.at(matchJ->queryIdx));
+
+            double currentDist = cv::norm(matchedI.first.pt - matchedJ.first.pt);
+            double previousDist = cv::norm(matchedI.second.pt - matchedJ.second.pt);
+
+            if(currentDist < distanceMinThreshold) continue;
+            if(previousDist <= numeric_limits<double>::epsilon()) continue;
+
+            distanceRatios.push_back(currentDist / previousDist);
+
+        }
+    }
+
+    if (distanceRatios.size() == 0) return;
+
+    sort(distanceRatios.begin(), distanceRatios.end());
+    TTC = -( (1.0/frameRate) * (1-distanceRatios[distanceRatios.size()/2]) );
+
 }
 
 
