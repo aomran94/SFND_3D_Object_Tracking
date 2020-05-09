@@ -145,14 +145,57 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
 }
 
 
+LidarPoint medianXAxis(std::vector<LidarPoint> &lidarPoints){
+    sort(lidarPoints.begin(), lidarPoints.end(), [](LidarPoint a, LidarPoint b) { return a.x < b.x; });
+    return lidarPoints[lidarPoints.size()/2];
+}
+
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
 {
-    // ...
+    // Using the constant-velocity model: TTC = d1 * dt / (d0 - d1)
+    double d0 = medianXAxis(lidarPointsPrev).x;
+    double d1 = medianXAxis(lidarPointsCurr).x;
+    double dt = 1.0 / frameRate;               
+    TTC = d1 * dt / (d0 - d1);
 }
 
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
-    // ...
+    map<int, map<int, int>> boxMatchings;           // Relations between boxes represented as adjancency list from current boxes to previous ones.
+
+    for(auto match:matches){
+        cv::KeyPoint prevKeypoint = prevFrame.keypoints[match.queryIdx];
+        cv::KeyPoint currKeypoint = currFrame.keypoints[match.trainIdx];
+
+        int boxPrev = -1, boxCurr = -1;
+
+        for(auto box:prevFrame.boundingBoxes)
+            if(box.roi.contains(prevKeypoint.pt)) boxPrev = box.boxID;
+        for(auto box:currFrame.boundingBoxes)
+            if(box.roi.contains(currKeypoint.pt)) boxCurr = box.boxID;
+
+        if(boxPrev == -1 || boxCurr == -1) continue;
+
+        if(boxMatchings.find(boxCurr) == boxMatchings.end()) {
+            map<int, int> a;
+            boxMatchings.insert(make_pair(boxCurr, a));
+        }
+        if(boxMatchings[boxCurr].find(boxPrev) == boxMatchings[boxCurr].end())
+            boxMatchings[boxCurr].insert(make_pair(boxPrev, 0));
+
+        boxMatchings[boxCurr][boxPrev]++;
+
+    }
+
+    for(auto boxMatch:boxMatchings){
+
+        int currBox = boxMatch.first;
+        int bestPrevBox = max_element(boxMatch.second.begin(), boxMatch.second.end(), [] (const std::pair<int,int>& a, const std::pair<int,int>& b)->bool{ return a.second < b.second; })->first;
+        bbBestMatches.insert(make_pair(currBox, bestPrevBox));
+
+    }
+
+
 }
