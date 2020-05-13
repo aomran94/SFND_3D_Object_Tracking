@@ -74,8 +74,19 @@ int main(int argc, const char *argv[])
     vector<DataFrame> dataBuffer; // list of data frames which are held in memory at the same time
     bool bVis = false;            // visualize results
 
-    /* MAIN LOOP OVER ALL IMAGES */
+    vector<string> detectors = {"SHITOMASI", "HARRIS", "FAST", "BRISK", "ORB", "AKAZE", "SIFT"};
+    vector<string> descriptors = {"BRISK", "BRIEF", "ORB", "FREAK", "AKAZE", "SIFT"};
 
+    ofstream fp6;
+    fp6.open("../stats/fp6.csv", std::ios_base::app);
+    fp6 << "Detector Type, Dexcriptor Type, Image No., TTC Lidar, TTC Camera, Time Difference" << endl;
+
+    /* MAIN LOOP OVER ALL Detector/Descriptor Combinations */
+    for(string kpDetector : detectors){
+    for(string kpDescriptor : descriptors){
+    if((kpDetector == "ORB" && kpDescriptor == "SIFT") || (kpDetector == "SIFT" && kpDescriptor == "ORB") || 
+        (kpDetector == "AKAZE" && kpDescriptor != "AKAZE") || (kpDetector != "AKAZE" && kpDescriptor == "AKAZE")) continue;
+    /* MAIN LOOP OVER ALL IMAGES */
     for (size_t imgIndex = 0; imgIndex <= imgEndIndex - imgStartIndex; imgIndex+=imgStepWidth)
     {
         /* LOAD IMAGE INTO BUFFER */
@@ -92,6 +103,8 @@ int main(int argc, const char *argv[])
         DataFrame frame;
         frame.cameraImg = img;
         dataBuffer.push_back(frame);
+        if(dataBuffer.size() > dataBufferSize)
+            dataBuffer.erase(dataBuffer.begin());
 
         cout << "#1 : LOAD IMAGE INTO BUFFER done" << endl;
 
@@ -129,7 +142,7 @@ int main(int argc, const char *argv[])
         clusterLidarWithROI((dataBuffer.end()-1)->boundingBoxes, (dataBuffer.end() - 1)->lidarPoints, shrinkFactor, P_rect_00, R_rect_00, RT);
 
         // Visualize 3D objects
-        bVis = true;
+        bVis = false;
         if(bVis)
         {
             show3DObjects((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(1800, 900), true);
@@ -150,15 +163,19 @@ int main(int argc, const char *argv[])
 
         // extract 2D keypoints from current image
         vector<cv::KeyPoint> keypoints; // create empty feature list for current image
-        string detectorType = "SHITOMASI";
+        string detectorType = kpDetector;
 
         if (detectorType.compare("SHITOMASI") == 0)
         {
             detKeypointsShiTomasi(keypoints, imgGray, false);
         }
-        else
+        else if (detectorType.compare("HARRIS") == 0)
         {
-            //...
+            detKeypointsHarris(keypoints, imgGray, false);
+        }
+        else // Modern Detectors
+        {
+            detKeypointsModern(keypoints, imgGray, detectorType, false);
         }
 
         // optional : limit number of keypoints (helpful for debugging and learning)
@@ -184,14 +201,17 @@ int main(int argc, const char *argv[])
         /* EXTRACT KEYPOINT DESCRIPTORS */
 
         cv::Mat descriptors;
-        string descriptorType = "BRISK"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
+        cout << "Blabeez" << endl;
+        string descriptorType = kpDescriptor; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
         descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType);
+        cout << "Blabeez" << endl;
 
         // push descriptors for current frame to end of data buffer
         (dataBuffer.end() - 1)->descriptors = descriptors;
 
         cout << "#6 : EXTRACT DESCRIPTORS done" << endl;
-
+        double ttcLidar; 
+        double ttcCamera;
 
         if (dataBuffer.size() > 1) // wait until at least two images have been processed
         {
@@ -200,8 +220,8 @@ int main(int argc, const char *argv[])
 
             vector<cv::DMatch> matches;
             string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
-            string descriptorType = "DES_BINARY"; // DES_BINARY, DES_HOG
-            string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
+            string descriptorType = (kpDescriptor.compare("SIFT")==0)?"DES_HOG":"DES_BINARY";; // DES_BINARY, DES_HOG
+            string selectorType = "SEL_KNN";       // SEL_NN, SEL_KNN
 
             matchDescriptors((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints,
                              (dataBuffer.end() - 2)->descriptors, (dataBuffer.end() - 1)->descriptors,
@@ -255,14 +275,12 @@ int main(int argc, const char *argv[])
                 {
                     //// STUDENT ASSIGNMENT
                     //// TASK FP.2 -> compute time-to-collision based on Lidar data (implement -> computeTTCLidar)
-                    double ttcLidar; 
                     computeTTCLidar(prevBB->lidarPoints, currBB->lidarPoints, sensorFrameRate, ttcLidar);
                     //// EOF STUDENT ASSIGNMENT
 
                     //// STUDENT ASSIGNMENT
                     //// TASK FP.3 -> assign enclosed keypoint matches to bounding box (implement -> clusterKptMatchesWithROI)
                     //// TASK FP.4 -> compute time-to-collision based on camera (implement -> computeTTCCamera)
-                    double ttcCamera;
                     clusterKptMatchesWithROI(*currBB, (dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->kptMatches);                    
                     computeTTCCamera((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, currBB->kptMatches, sensorFrameRate, ttcCamera);
                     //// EOF STUDENT ASSIGNMENT
@@ -282,14 +300,18 @@ int main(int argc, const char *argv[])
                         cv::namedWindow(windowName, 4);
                         cv::imshow(windowName, visImg);
                         cout << "Press key to continue to next frame" << endl;
-                        cv::waitKey(0);
+                        //cv::waitKey(0);
                     }
                     bVis = false;
 
                 } // eof TTC computation
             } // eof loop over all BB mat2000
+            fp6 << kpDetector << ", " << kpDescriptor << ", " << imgIndex << ", " << ttcLidar << ", " << ttcCamera << ", " << ttcLidar - ttcCamera << endl;
         }
     } // eof loop over all images
-
+    dataBuffer.clear();
+    }
+    }
+    fp6.close();
     return 0;
 }

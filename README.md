@@ -59,12 +59,24 @@ This is implemented in function `computeTTCCamera` in file `camFusion_Student.cp
 
 In all frames, I believe the Lidar-based TTC Estimation was reasonable (9.0~15.0 sec). I believe this is due to the median point being a stable and accuarate distance estimator.
 
-<img src="images/fp51.png" width="779" height="414" />
+<img src="images/fp51.png" width="779" height="414"  />
 
-<img src="images/fp52.png" width="779" height="414" />
+<img src="images/fp52.png" width="779" height="414"  />
 
-<img src="images/fp53.png" width="779" height="414" />
+<img src="images/fp53.png" width="779" height="414"  />
 
-<img src="images/fp54.png" width="779" height="414" />
+<img src="images/fp54.png" width="779" height="414"  />
 
 ## FP.6 Performance Evaluation 2
+
+I tried using a nested loop all *valid* detector/descriptor combinations. Data are logged in `stats/fp6.csv`. 
+
+Examples for accurate data (Time column filtered with -0.5 < time < 0.5) indicate FAST detector with SIFT/FREAK/BRISK descriptors produced the most accuarate results.
+
+<img src="images/fp63.png" />
+
+Examples for non-accuarate faulty data (time > 50.0 or time < -0.50) happened with HARRIS/ORB detectors with BRIEF/ORB descriptors.
+
+<img src="images/fp64.png" />
+
+
