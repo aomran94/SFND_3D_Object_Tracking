@@ -36,4 +36,35 @@ In this final project, you will implement the missing parts in the schematic. To
 
 # FP.0 Write-Up Report
 
-## FP.1 
+## FP.1 : Match 3D Objects
+
+Bounding Boxes were matched based on highest number of keypoint correspondings. This was computed in an algorithmically-efficient way by a 2D Map `map<int, map<int, int>> boxMatchings` that stores for each pair of Bounding Boxes the number of keypoint matchings, then for each Bounding Box the Box with highest number of matches is selected as a match. This is implemented in function `matchBoundingBoxes` in file `camFusion_Student.cpp` lines 191-226.
+
+## FP.2 : Compute lidar-Based TTC
+
+To eliminate the effect of outlier lidar points, I calculated distance with respect to the median x-axis value of the points (This works because a very high number of points is focused and close to the actual end that we calculate the distance to, thus the median must be one of them). 
+This is implemented in function `computeTTCLidar` and `medianXAxis` in file `camFusion_Student.cpp` lines 175-188.
+
+## FP.3 : Associate Keypoint Correspondences with Bounding Boxes
+
+For all keypoint matches, I check if it lies within the region of interest (roi) of the bounding box and if so it is added to the keypoints of that bounding box. 
+This is implemented in function `clusterKptMatchesWithROI` in file `camFusion_Student.cpp` lines 134-140.
+
+## FP.4 : Compute Camera-based TTC
+
+Inspired by the lesson example, I iterated through each pair of points (> a given distance) and their corresponding matched points, euxlidean distance is calculated and then the ratio between current and previous distance. Distance ratios are added to a vector and their median is used in TTC computation.
+This is implemented in function `computeTTCCamera` in file `camFusion_Student.cpp` lines 144-172.
+
+## FP.5 Performance Evaluation 1
+
+In all frames, I believe the Lidar-based TTC Estimation was reasonable (9.0~15.0 sec). I believe this is due to the median point being a stable and accuarate distance estimator.
+
+<img src="images/fp51.png" width="779" height="414" />
+
+<img src="images/fp52.png" width="779" height="414" />
+
+<img src="images/fp53.png" width="779" height="414" />
+
+<img src="images/fp54.png" width="779" height="414" />
+
+## FP.6 Performance Evaluation 2

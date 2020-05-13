@@ -145,7 +145,7 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
                       std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
 {
     vector<double> distanceRatios;
-    double distanceMinThreshold = 80.0;
+    double distanceMinThreshold = 100.0;
     TTC = 0.0;
 
     for(auto matchI = kptMatches.begin(); matchI < kptMatches.end()-1; matchI++){
@@ -157,10 +157,8 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
             double currentDist = cv::norm(matchedI.first.pt - matchedJ.first.pt);
             double previousDist = cv::norm(matchedI.second.pt - matchedJ.second.pt);
 
-            if(currentDist < distanceMinThreshold) continue;
-            if(previousDist <= numeric_limits<double>::epsilon()) continue;
-
-            distanceRatios.push_back(currentDist / previousDist);
+            if (currentDist >= distanceMinThreshold && previousDist > numeric_limits<double>::epsilon()) 
+                distanceRatios.push_back(currentDist / previousDist);
 
         }
     }
@@ -168,7 +166,8 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
     if (distanceRatios.size() == 0) return;
 
     sort(distanceRatios.begin(), distanceRatios.end());
-    TTC = -( (1.0/frameRate) * (1-distanceRatios[distanceRatios.size()/2]) );
+
+    TTC = ( (-1.0/frameRate) / (1-distanceRatios[distanceRatios.size()/2]) );
 
 }
 
@@ -224,6 +223,4 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
         bbBestMatches.insert(make_pair(currBox, bestPrevBox));
 
     }
-
-
 }
