@@ -34,4 +34,5 @@
 # Folders
 build/
 .vscode/
-dat/
+
+dat/yolo/yolov3.weights
